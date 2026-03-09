@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy AWS - Cloud Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        canvas {
+            border: 4px solid #2d3748;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+            display: none; /* Se oculta hasta que empiece el juego */
+        }
+        body {
+            background: #1a202c;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de Inicio -->
+    <div id="startScreen" class="text-center bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
+        <h1 class="text-4xl font-bold text-orange-500 mb-6">FLAPPY AWS</h1>
+        <p class="mb-4 text-gray-300">Introduce tu nombre para entrar al Leaderboard:</p>
+        <input type="text" id="playerName" placeholder="Tu Nombre" class="px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white mb-6 w-full outline-none focus:border-orange-500">
+        <button onclick="startGame()" class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-8 rounded-full transition-all transform hover:scale-105">
+            ¡INICIAR JUEGO!
+        </button>
+    </div>
+
+    <!-- Pantalla de Carga/Éxito -->
+    <div id="statusMsg" class="hidden fixed top-5 right-5 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg">
+        Sincronizando con AWS...
+    </div>
+
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('startScreen');
+        const statusMsg = document.getElementById('statusMsg');
+        
+        // Estado del Juego
+        let bird = { x: 50, y: 300, velocity: 0, gravity: 0.6, jump: -9, radius: 15 };
+        let pipes = [];
+        let score = 0;
+        let gameActive = false;
+        let playerName = "";
+
+        function startGame() {
+            const input = document.getElementById('playerName').value;
+            playerName = input.trim() || "Jugador_Web";
+            
+            startScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            gameActive = true;
+            resetGame();
+            requestAnimationFrame(update);
+        }
+
+        function resetGame() {
+            bird.y = 300;
+            bird.velocity = 0;
+            pipes = [];
+            score = 0;
+            addPipe();
+        }
+
+        function addPipe() {
+            const gap = 150;
+            const minHeight = 50;
+            const height = Math.floor(Math.random() * (canvas.height - gap - (minHeight * 2))) + minHeight;
+            pipes.push({ x: canvas.width, top: height, bottom: canvas.height - height - gap });
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            // Físicas del pájaro
+            bird.velocity += bird.gravity;
+            bird.y += bird.velocity;
+
+            // Generar tubos
+            if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
+                addPipe();
+            }
+
+            // Mover tubos y colisiones
+            for (let i = pipes.length - 1; i >= 0; i--) {
+                pipes[i].x -= 3;
+
+                // Colisión con tubos
+                if (
+                    bird.x + bird.radius > pipes[i].x && 
+                    bird.x - bird.radius < pipes[i].x + 60 &&
+                    (bird.y - bird.radius < pipes[i].top || bird.y + bird.radius > canvas.height - pipes[i].bottom)
+                ) {
+                    gameOver();
+                }
+
+                // Sumar puntos
+                if (pipes[i].x === 50) score++;
+
+                // Eliminar tubos fuera de pantalla
+                if (pipes[i].x < -60) pipes.splice(i, 1);
+            }
+
+            // Colisión con suelo/techo
+            if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
+                gameOver();
+            }
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        function draw() {
+            // Fondo
+            ctx.fillStyle = "#70c5ce";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Tubos
+            ctx.fillStyle = "#2ecc71";
+            pipes.forEach(p => {
+                ctx.fillRect(p.x, 0, 60, p.top);
+                ctx.fillRect(p.x, canvas.height - p.bottom, 60, p.bottom);
+            });
+
+            // Pájaro (AWS Orange)
+            ctx.fillStyle = "#ff9900";
+            ctx.beginPath();
+            ctx.arc(bird.x, bird.y, bird.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Puntaje
+            ctx.fillStyle = "white";
+            ctx.font = "bold 24px Arial";
+            ctx.fillText(`Score: ${score}`, 20, 40);
+            ctx.font = "16px Arial";
+            ctx.fillText(`Jugador: ${playerName}`, 20, 70);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            statusMsg.classList.remove('hidden');
+            statusMsg.innerText = "¡Puntaje enviado a AWS!";
+            
+            // Simulación de envío a AWS (Aquí conectarías tu API Gateway/Lambda)
+            console.log(`Enviando a AWS: ${playerName} - Score: ${score}`);
+            
+            setTimeout(() => {
+                statusMsg.classList.add('hidden');
+                startScreen.style.display = 'block';
+                canvas.style.display = 'none';
+            }, 2000);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && gameActive) {
+                bird.velocity = bird.jump;
+            }
+        });
+        
+        // Soporte para móviles/clicks
+        window.addEventListener('mousedown', () => {
+            if (gameActive) bird.velocity = bird.jump;
+        });
+
+    </script>
+</body>
+</html>
