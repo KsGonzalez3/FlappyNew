@@ -3,209 +3,370 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flappy AWS - Cloud Edition</title>
+    <title>Flappy AWS - Music Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        canvas {
-            border: 4px solid #2d3748;
-            border-radius: 12px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
-            display: none; /* Se oculta hasta que empiece el juego */
-        }
         body {
-            background: #1a202c;
+            background: #020408;
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
             overflow: hidden;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
             color: white;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 150px rgba(255, 153, 0, 0.1);
+            border: 1px solid #1e293b;
+            border-radius: 30px;
+            overflow: hidden;
+            background: #000;
+        }
+        canvas { display: block; }
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(2, 6, 23, 0.9);
+            backdrop-filter: blur(15px);
+            z-index: 50;
+        }
+        .hidden { display: none !important; }
+        .aws-btn {
+            background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%);
+            color: white;
+            padding: 16px 45px;
+            border-radius: 50px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 40px rgba(255, 153, 0, 0.2);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .aws-btn:hover { transform: scale(1.1) translateY(-3px); filter: brightness(1.2); }
+        
+        .status-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+        .bar-bg {
+            width: 150px;
+            height: 8px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .bar-fill { height: 100%; transition: width 0.2s ease-out; }
+        #fuel-fill { background: #fbbf24; width: 100%; }
+        #shield-fill { background: #38bdf8; width: 0%; }
+
+        #audio-control {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.1);
         }
     </style>
 </head>
 <body>
 
-    <!-- Pantalla de Inicio -->
-    <div id="startScreen" class="text-center bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-700">
-        <h1 class="text-4xl font-bold text-orange-500 mb-6">FLAPPY AWS</h1>
-        <p class="mb-4 text-gray-300">Introduce tu nombre para entrar al Leaderboard:</p>
-        <input type="text" id="playerName" placeholder="Tu Nombre" class="px-4 py-2 rounded bg-gray-700 border border-gray-600 text-white mb-6 w-full outline-none focus:border-orange-500">
-        <button onclick="startGame()" class="bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-8 rounded-full transition-all transform hover:scale-105">
-            ¡INICIAR JUEGO!
-        </button>
-    </div>
+    <div id="game-container">
+        <div id="audio-control" onclick="toggleAudio()">
+            <svg id="audio-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-500">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            </svg>
+        </div>
 
-    <!-- Pantalla de Carga/Éxito -->
-    <div id="statusMsg" class="hidden fixed top-5 right-5 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg">
-        Sincronizando con AWS...
-    </div>
+        <div class="status-container">
+            <div>
+                <p class="text-[8px] uppercase tracking-widest mb-1 opacity-50">Fuel / Propulsor</p>
+                <div class="bar-bg"><div id="fuel-fill" class="bar-fill"></div></div>
+            </div>
+            <div id="shield-ui" class="hidden">
+                <p class="text-[8px] uppercase tracking-widest mb-1 text-blue-400">Escudo Activo</p>
+                <div class="bar-bg"><div id="shield-fill" class="bar-fill"></div></div>
+            </div>
+        </div>
 
-    <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="startScreen" class="ui-overlay">
+            <h1 class="text-5xl font-black text-white mb-2 italic">FLAPPY AWS</h1>
+            <p class="text-blue-400 mb-10 tracking-[0.3em] text-[10px] uppercase font-bold">Atmospheric Engine v4.0</p>
+            <button onclick="initGame()" class="aws-btn">Iniciar Sistemas</button>
+            <p class="mt-6 text-[9px] text-gray-500">Música ambiental generativa incluida.</p>
+        </div>
+
+        <div id="gameOverScreen" class="ui-overlay hidden">
+            <h2 class="text-4xl text-red-500 font-black mb-2 italic">SISTEMAS OFFLINE</h2>
+            <p id="lastScore" class="text-6xl font-bold text-orange-500 mb-6">0</p>
+            <button onclick="resetGame()" class="aws-btn">Reiniciar</button>
+        </div>
+
+        <canvas id="gameCanvas" width="450" height="700"></canvas>
+    </div>
 
     <script>
+        // --- AUDIO & MUSIC ENGINE ---
+        let audioCtx = null;
+        let isAudioEnabled = true;
+        let masterGain = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                masterGain.connect(audioCtx.destination);
+                startBackgroundMusic();
+            }
+        }
+
+        // Música de fondo generativa (Atmósfera Zen)
+        function startBackgroundMusic() {
+            const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25]; // Escala Pentatónica C
+            
+            // Bajo constante (Drone)
+            const drone = audioCtx.createOscillator();
+            const droneGain = audioCtx.createGain();
+            drone.type = 'sine';
+            drone.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2
+            droneGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            drone.connect(droneGain);
+            droneGain.connect(masterGain);
+            drone.start();
+
+            // Secuenciador de notas aleatorias
+            function playNextNote() {
+                if (!isAudioEnabled) {
+                    setTimeout(playNextNote, 2000);
+                    return;
+                }
+                const freq = scale[Math.floor(Math.random() * scale.length)];
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                g.gain.setValueAtTime(0, audioCtx.currentTime);
+                g.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.5);
+                g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.0);
+                
+                osc.connect(g);
+                g.connect(masterGain);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 2.5);
+                
+                // Programar siguiente nota entre 1 y 3 segundos
+                setTimeout(playNextNote, 1000 + Math.random() * 2000);
+            }
+            playNextNote();
+        }
+
+        function playJumpSound() {
+            if (!isAudioEnabled || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+            osc.connect(g); g.connect(masterGain);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        function playScoreSound() {
+            if (!isAudioEnabled || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+            osc.connect(g); g.connect(masterGain);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function playExplosionSound() {
+            if (!isAudioEnabled || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(20, audioCtx.currentTime + 0.5);
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            osc.connect(g); g.connect(masterGain);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        function toggleAudio() {
+            isAudioEnabled = !isAudioEnabled;
+            const icon = document.getElementById('audio-icon');
+            icon.style.opacity = isAudioEnabled ? "1" : "0.3";
+            if (masterGain) {
+                masterGain.gain.setTargetAtTime(isAudioEnabled ? 0.3 : 0, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        // --- GAME ENGINE ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const startScreen = document.getElementById('startScreen');
-        const statusMsg = document.getElementById('statusMsg');
-        
-        // Estado del Juego
-        let bird = { x: 50, y: 300, velocity: 0, gravity: 0.6, jump: -9, radius: 15 };
-        let pipes = [];
-        let score = 0;
-        let gameActive = false;
-        let playerName = "";
+        const SETTINGS = { baseSpeed: 2.5, speedInc: 0.12, fuelMax: 100, fuelCost: 10, fuelRegen: 0.45, gravity: 0.22, jumpForce: -5.0 };
+        let state = { active: false, score: 0, frames: 0, speed: SETTINGS.baseSpeed, fuel: SETTINGS.fuelMax, isShielded: false, shieldTime: 0 };
+        const bird = { x: 100, y: 350, v: 0, angle: 0, trail: [], particles: [] };
+        let pipes = []; let stars = []; let orbs = [];
 
-        function startGame() {
-            const input = document.getElementById('playerName').value;
-            playerName = input.trim() || "Jugador_Web";
-            
-            startScreen.style.display = 'none';
-            canvas.style.display = 'block';
-            gameActive = true;
-            resetGame();
-            requestAnimationFrame(update);
+        for(let i=0; i<80; i++) stars.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*2, sp: Math.random()*0.5 });
+
+        function initGame() {
+            initAudio();
+            document.getElementById('startScreen').classList.add('hidden');
+            resetGameParams();
+            state.active = true;
+            loop();
+        }
+
+        function resetGameParams() {
+            Object.assign(state, { score: 0, frames: 0, speed: SETTINGS.baseSpeed, fuel: SETTINGS.fuelMax, isShielded: false });
+            Object.assign(bird, { y: 350, v: 0, angle: 0, trail: [], particles: [] });
+            pipes = []; orbs = [];
+            document.getElementById('shield-ui').classList.add('hidden');
         }
 
         function resetGame() {
-            bird.y = 300;
-            bird.velocity = 0;
-            pipes = [];
-            score = 0;
-            addPipe();
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            resetGameParams();
+            state.active = true;
+            loop();
         }
 
-        function addPipe() {
-            const gap = 150;
-            const minHeight = 50;
-            const height = Math.floor(Math.random() * (canvas.height - gap - (minHeight * 2))) + minHeight;
-            pipes.push({ x: canvas.width, top: height, bottom: canvas.height - height - gap });
+        function jump() {
+            if (!state.active) return;
+            if (state.fuel >= SETTINGS.fuelCost) {
+                bird.v = SETTINGS.jumpForce;
+                state.fuel -= SETTINGS.fuelCost;
+                playJumpSound();
+                for(let i=0; i<4; i++) bird.particles.push({ x: bird.x, y: bird.y, vx: -2, vy: (Math.random()-0.5)*2, life: 1, color: "#ff9900" });
+            }
         }
 
         function update() {
-            if (!gameActive) return;
+            if (!state.active) return;
+            state.frames++;
+            state.speed = SETTINGS.baseSpeed + (Math.floor(state.score/10) * SETTINGS.speedInc);
+            state.fuel = Math.min(SETTINGS.fuelMax, state.fuel + SETTINGS.fuelRegen);
+            document.getElementById('fuel-fill').style.width = state.fuel + "%";
 
-            // Físicas del pájaro
-            bird.velocity += bird.gravity;
-            bird.y += bird.velocity;
+            bird.v += SETTINGS.gravity;
+            bird.y += bird.v;
+            bird.angle = Math.min(Math.PI/6, Math.max(-Math.PI/10, bird.v * 0.1));
 
-            // Generar tubos
-            if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 200) {
-                addPipe();
+            if (state.frames % 3 === 0) bird.trail.unshift({ x: bird.x, y: bird.y });
+            if (bird.trail.length > 12) bird.trail.pop();
+            bird.trail.forEach(t => t.x -= state.speed);
+
+            bird.particles.forEach((p, i) => {
+                p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+                if (p.life <= 0) bird.particles.splice(i, 1);
+            });
+
+            if (state.frames % 120 === 0) {
+                const gap = 180;
+                const h = Math.random() * (canvas.height - gap - 240) + 120;
+                pipes.push({ x: canvas.width, top: h, bottom: canvas.height - h - gap, passed: false });
             }
 
-            // Mover tubos y colisiones
-            for (let i = pipes.length - 1; i >= 0; i--) {
-                pipes[i].x -= 3;
-
-                // Colisión con tubos
-                if (
-                    bird.x + bird.radius > pipes[i].x && 
-                    bird.x - bird.radius < pipes[i].x + 60 &&
-                    (bird.y - bird.radius < pipes[i].top || bird.y + bird.radius > canvas.height - pipes[i].bottom)
-                ) {
-                    gameOver();
+            pipes.forEach((p, i) => {
+                p.x -= state.speed;
+                if (bird.x + 12 > p.x && bird.x - 12 < p.x + 70) {
+                    if (bird.y - 10 < p.top || bird.y + 10 > canvas.height - p.bottom) triggerGameOver();
                 }
+                if (!p.passed && p.x + 35 < bird.x) { state.score++; p.passed = true; playScoreSound(); }
+                if (p.x < -100) pipes.splice(i, 1);
+            });
 
-                // Sumar puntos
-                if (pipes[i].x === 50) score++;
-
-                // Eliminar tubos fuera de pantalla
-                if (pipes[i].x < -60) pipes.splice(i, 1);
-            }
-
-            // Colisión con suelo/techo
-            if (bird.y + bird.radius > canvas.height || bird.y - bird.radius < 0) {
-                gameOver();
-            }
-
-            draw();
-            requestAnimationFrame(update);
+            if (bird.y > canvas.height || bird.y < 0) triggerGameOver();
         }
 
         function draw() {
-            // Fondo
-            ctx.fillStyle = "#70c5ce";
+            ctx.fillStyle = "#020408";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Tubos
-            ctx.fillStyle = "#2ecc71";
+            stars.forEach(s => {
+                s.x -= s.sp; if(s.x < 0) s.x = canvas.width;
+                ctx.fillStyle = "rgba(255,255,255,0.25)";
+                ctx.fillRect(s.x, s.y, s.s, s.s);
+            });
+
             pipes.forEach(p => {
-                ctx.fillRect(p.x, 0, 60, p.top);
-                ctx.fillRect(p.x, canvas.height - p.bottom, 60, p.bottom);
+                ctx.fillStyle = "#1e293b";
+                ctx.fillRect(p.x, 0, 70, p.top);
+                ctx.fillRect(p.x, canvas.height - p.bottom, 70, p.bottom);
             });
 
-            // Pájaro (AWS Orange)
+            ctx.save();
+            ctx.translate(bird.x, bird.y);
+            ctx.rotate(bird.angle);
             ctx.fillStyle = "#ff9900";
-            ctx.beginPath();
-            ctx.arc(bird.x, bird.y, bird.radius, 0, Math.PI * 2);
+            ctx.beginPath(); ctx.moveTo(18,0); ctx.lineTo(-14, -10); ctx.lineTo(-14, 10); ctx.closePath();
             ctx.fill();
+            ctx.restore();
 
-            // Puntaje
-            ctx.fillStyle = "white";
-            ctx.font = "bold 24px Arial";
-            ctx.fillText(`Score: ${score}`, 20, 40);
-            ctx.font = "16px Arial";
-            ctx.fillText(`Jugador: ${playerName}`, 20, 70);
-        }
-
-        function gameOver() {
-            gameActive = false;
-            
-            // Mostramos mensaje de carga
-            statusMsg.classList.remove('hidden');
-            statusMsg.innerText = "Enviando puntaje a AWS...";
-            statusMsg.style.background = "#d97706"; // Color naranja de espera
-
-            // --- CONEXIÓN REAL CON API GATEWAY ---
-            const API_URL = 'https://xxupum4746.execute-api.us-east-2.amazonaws.com/save'; // <--- PEGA AQUÍ TU URL DE API GATEWAY
-
-            fetch(API_URL, {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId: "WEB_" + Date.now(),
-                    username: playerName,
-                    score: score
-                })
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Error en el servidor');
-                return response.json();
-            })
-            .then(data => {
-                console.log("Respuesta de AWS:", data);
-                statusMsg.innerText = "¡Puntaje guardado con éxito!";
-                statusMsg.style.background = "#059669"; // Color verde de éxito
-            })
-            .catch(error => {
-                console.error("Error al conectar con el API:", error);
-                statusMsg.innerText = "Error al guardar en la nube";
-                statusMsg.style.background = "#dc2626"; // Color rojo de error
+            bird.particles.forEach(p => {
+                ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, 2, 2);
             });
-            // ---------------------------------------
+            ctx.globalAlpha = 1;
 
-            setTimeout(() => {
-                statusMsg.classList.add('hidden');
-                startScreen.style.display = 'block';
-                canvas.style.display = 'none';
-            }, 3000);
+            ctx.fillStyle = "white";
+            ctx.font = "bold 44px Orbitron";
+            ctx.textAlign = "center";
+            ctx.fillText(state.score, canvas.width/2, 80);
         }
 
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space' && gameActive) {
-                bird.velocity = bird.jump;
-            }
-        });
-        
-        // Soporte para móviles/clicks
-        window.addEventListener('mousedown', () => {
-            if (gameActive) bird.velocity = bird.jump;
-        });
+        function triggerGameOver() {
+            if(!state.active) return;
+            state.active = false;
+            playExplosionSound();
+            setTimeout(() => {
+                document.getElementById('gameOverScreen').classList.remove('hidden');
+                document.getElementById('lastScore').innerText = state.score;
+            }, 600);
+        }
 
+        function loop() {
+            if (!state.active) return;
+            update(); draw();
+            requestAnimationFrame(loop);
+        }
+
+        window.addEventListener('keydown', (e) => { if(e.code === 'Space') { e.preventDefault(); jump(); } });
+        canvas.addEventListener('mousedown', jump);
     </script>
 </body>
 </html>
