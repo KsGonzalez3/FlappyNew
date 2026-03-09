@@ -45,17 +45,17 @@
         .aws-btn {
             background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%);
             color: white;
-            padding: 16px 45px;
+            padding: 12px 35px;
             border-radius: 50px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 4px;
+            letter-spacing: 2px;
             cursor: pointer;
             border: none;
             box-shadow: 0 0 40px rgba(255, 153, 0, 0.2);
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        .aws-btn:hover { transform: scale(1.1) translateY(-3px); filter: brightness(1.2); }
+        .aws-btn:hover { transform: scale(1.05) translateY(-2px); filter: brightness(1.2); }
         
         .status-container {
             position: absolute;
@@ -75,7 +75,6 @@
         }
         .bar-fill { height: 100%; transition: width 0.2s ease-out; }
         #fuel-fill { background: #fbbf24; width: 100%; }
-        #shield-fill { background: #38bdf8; width: 0%; }
 
         #audio-control {
             position: absolute;
@@ -88,6 +87,26 @@
             cursor: pointer;
             border: 1px solid rgba(255,255,255,0.1);
         }
+
+        /* Estilos para el Leaderboard */
+        .leaderboard-container {
+            width: 80%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+        .leaderboard-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.3s;
+        }
+        .leaderboard-row:hover { background: rgba(255, 153, 0, 0.1); }
+        .leaderboard-row:last-child { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -105,30 +124,36 @@
                 <p class="text-[8px] uppercase tracking-widest mb-1 opacity-50">Fuel / Propulsor</p>
                 <div class="bar-bg"><div id="fuel-fill" class="bar-fill"></div></div>
             </div>
-            <div id="shield-ui" class="hidden">
-                <p class="text-[8px] uppercase tracking-widest mb-1 text-blue-400">Escudo Activo</p>
-                <div class="bar-bg"><div id="shield-fill" class="bar-fill"></div></div>
-            </div>
         </div>
 
+        <!-- Pantalla Inicial -->
         <div id="startScreen" class="ui-overlay">
-            <h1 class="text-5xl font-black text-white mb-2 italic">FLAPPY AWS</h1>
-            <p class="text-blue-400 mb-10 tracking-[0.3em] text-[10px] uppercase font-bold">Atmospheric Engine v4.0</p>
+            <h1 class="text-5xl font-black text-white mb-2 italic text-center">FLAPPY AWS</h1>
+            <p class="text-blue-400 mb-10 tracking-[0.3em] text-[10px] uppercase font-bold text-center">Atmospheric Engine v4.0</p>
             <button onclick="initGame()" class="aws-btn">Iniciar Sistemas</button>
-            <p class="mt-6 text-[9px] text-gray-500">Música ambiental generativa incluida.</p>
+            <p class="mt-6 text-[9px] text-gray-500">Conectando con DynamoDB...</p>
         </div>
 
+        <!-- Pantalla de Game Over con Leaderboard -->
         <div id="gameOverScreen" class="ui-overlay hidden">
-            <h2 class="text-4xl text-red-500 font-black mb-2 italic">SISTEMAS OFFLINE</h2>
-            <p id="lastScore" class="text-6xl font-bold text-orange-500 mb-6">0</p>
-            <button onclick="resetGame()" class="aws-btn">Reiniciar</button>
+            <h2 class="text-2xl text-red-500 font-black mb-1 italic">SISTEMAS OFFLINE</h2>
+            <p id="lastScore" class="text-5xl font-bold text-orange-500 mb-4">0</p>
+            
+            <div class="leaderboard-container">
+                <p class="text-[8px] uppercase text-blue-400 mb-3 tracking-widest border-b border-blue-900 pb-1">Leaderboard (DynamoDB Sync)</p>
+                <div id="leaderboard-list">
+                    <!-- Los datos se inyectan aquí -->
+                </div>
+            </div>
+
+            <button onclick="resetGame()" class="aws-btn mt-6">Reintentar</button>
         </div>
 
         <canvas id="gameCanvas" width="450" height="700"></canvas>
     </div>
 
     <script>
-        // --- AUDIO & MUSIC ENGINE ---
+        // --- AUDIO ENGINE ---
         let audioCtx = null;
         let isAudioEnabled = true;
         let masterGain = null;
@@ -143,72 +168,32 @@
             }
         }
 
-        // Música de fondo generativa (Atmósfera Zen)
         function startBackgroundMusic() {
-            const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25]; // Escala Pentatónica C
-            
-            // Bajo constante (Drone)
+            const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
             const drone = audioCtx.createOscillator();
             const droneGain = audioCtx.createGain();
             drone.type = 'sine';
-            drone.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2
+            drone.frequency.setValueAtTime(65.41, audioCtx.currentTime);
             droneGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
             drone.connect(droneGain);
             droneGain.connect(masterGain);
             drone.start();
 
-            // Secuenciador de notas aleatorias
             function playNextNote() {
-                if (!isAudioEnabled) {
-                    setTimeout(playNextNote, 2000);
-                    return;
-                }
+                if (!isAudioEnabled) { setTimeout(playNextNote, 2000); return; }
                 const freq = scale[Math.floor(Math.random() * scale.length)];
                 const osc = audioCtx.createOscillator();
                 const g = audioCtx.createGain();
-                
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                
                 g.gain.setValueAtTime(0, audioCtx.currentTime);
                 g.gain.linearRampToValueAtTime(0.03, audioCtx.currentTime + 0.5);
                 g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 2.0);
-                
-                osc.connect(g);
-                g.connect(masterGain);
-                
-                osc.start();
-                osc.stop(audioCtx.currentTime + 2.5);
-                
-                // Programar siguiente nota entre 1 y 3 segundos
+                osc.connect(g); g.connect(masterGain);
+                osc.start(); osc.stop(audioCtx.currentTime + 2.5);
                 setTimeout(playNextNote, 1000 + Math.random() * 2000);
             }
             playNextNote();
-        }
-
-        function playJumpSound() {
-            if (!isAudioEnabled || !audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.1);
-            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-            osc.connect(g); g.connect(masterGain);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-        }
-
-        function playScoreSound() {
-            if (!isAudioEnabled || !audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const g = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
-            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-            osc.connect(g); g.connect(masterGain);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
         }
 
         function playExplosionSound() {
@@ -226,20 +211,17 @@
 
         function toggleAudio() {
             isAudioEnabled = !isAudioEnabled;
-            const icon = document.getElementById('audio-icon');
-            icon.style.opacity = isAudioEnabled ? "1" : "0.3";
-            if (masterGain) {
-                masterGain.gain.setTargetAtTime(isAudioEnabled ? 0.3 : 0, audioCtx.currentTime, 0.1);
-            }
+            document.getElementById('audio-icon').style.opacity = isAudioEnabled ? "1" : "0.3";
+            if (masterGain) masterGain.gain.setTargetAtTime(isAudioEnabled ? 0.3 : 0, audioCtx.currentTime, 0.1);
         }
 
         // --- GAME ENGINE ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const SETTINGS = { baseSpeed: 2.5, speedInc: 0.12, fuelMax: 100, fuelCost: 10, fuelRegen: 0.45, gravity: 0.22, jumpForce: -5.0 };
-        let state = { active: false, score: 0, frames: 0, speed: SETTINGS.baseSpeed, fuel: SETTINGS.fuelMax, isShielded: false, shieldTime: 0 };
-        const bird = { x: 100, y: 350, v: 0, angle: 0, trail: [], particles: [] };
-        let pipes = []; let stars = []; let orbs = [];
+        let state = { active: false, score: 0, frames: 0, speed: SETTINGS.baseSpeed, fuel: SETTINGS.fuelMax };
+        const bird = { x: 100, y: 350, v: 0, angle: 0, particles: [] };
+        let pipes = []; let stars = [];
 
         for(let i=0; i<80; i++) stars.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*2, sp: Math.random()*0.5 });
 
@@ -252,10 +234,9 @@
         }
 
         function resetGameParams() {
-            Object.assign(state, { score: 0, frames: 0, speed: SETTINGS.baseSpeed, fuel: SETTINGS.fuelMax, isShielded: false });
-            Object.assign(bird, { y: 350, v: 0, angle: 0, trail: [], particles: [] });
-            pipes = []; orbs = [];
-            document.getElementById('shield-ui').classList.add('hidden');
+            Object.assign(state, { score: 0, frames: 0, speed: SETTINGS.baseSpeed, fuel: SETTINGS.fuelMax });
+            Object.assign(bird, { y: 350, v: 0, angle: 0, particles: [] });
+            pipes = [];
         }
 
         function resetGame() {
@@ -270,7 +251,6 @@
             if (state.fuel >= SETTINGS.fuelCost) {
                 bird.v = SETTINGS.jumpForce;
                 state.fuel -= SETTINGS.fuelCost;
-                playJumpSound();
                 for(let i=0; i<4; i++) bird.particles.push({ x: bird.x, y: bird.y, vx: -2, vy: (Math.random()-0.5)*2, life: 1, color: "#ff9900" });
             }
         }
@@ -285,10 +265,6 @@
             bird.v += SETTINGS.gravity;
             bird.y += bird.v;
             bird.angle = Math.min(Math.PI/6, Math.max(-Math.PI/10, bird.v * 0.1));
-
-            if (state.frames % 3 === 0) bird.trail.unshift({ x: bird.x, y: bird.y });
-            if (bird.trail.length > 12) bird.trail.pop();
-            bird.trail.forEach(t => t.x -= state.speed);
 
             bird.particles.forEach((p, i) => {
                 p.x += p.vx; p.y += p.vy; p.life -= 0.02;
@@ -306,7 +282,7 @@
                 if (bird.x + 12 > p.x && bird.x - 12 < p.x + 70) {
                     if (bird.y - 10 < p.top || bird.y + 10 > canvas.height - p.bottom) triggerGameOver();
                 }
-                if (!p.passed && p.x + 35 < bird.x) { state.score++; p.passed = true; playScoreSound(); }
+                if (!p.passed && p.x + 35 < bird.x) { state.score++; p.passed = true; }
                 if (p.x < -100) pipes.splice(i, 1);
             });
 
@@ -349,10 +325,37 @@
             ctx.fillText(state.score, canvas.width/2, 80);
         }
 
+        // --- LÓGICA DE SIMULACIÓN DE BACKEND (VS CODE / JAVA) ---
+        function updateLeaderboardUI() {
+            const list = document.getElementById('leaderboard-list');
+            list.innerHTML = '';
+            
+            // Simulamos datos que vendrían de PlayerService.java -> DynamoDB
+            const mockData = [
+                { name: "CloudMaster", score: 85 },
+                { name: "JavaGuru", score: 62 },
+                { name: "AwsLearner", score: 45 },
+                { name: "Tu Puntaje", score: state.score, current: true }
+            ].sort((a,b) => b.score - a.score);
+
+            mockData.forEach((player, index) => {
+                const row = document.createElement('div');
+                row.className = `leaderboard-row ${player.current ? 'text-orange-400 font-bold bg-orange-500/10' : 'text-gray-400'}`;
+                row.innerHTML = `
+                    <span>#${index + 1} ${player.name}</span>
+                    <span>${player.score} PTS</span>
+                `;
+                list.appendChild(row);
+            });
+        }
+
         function triggerGameOver() {
             if(!state.active) return;
             state.active = false;
             playExplosionSound();
+            
+            updateLeaderboardUI(); // Aquí es donde "llamaríamos" a tu código Java
+
             setTimeout(() => {
                 document.getElementById('gameOverScreen').classList.remove('hidden');
                 document.getElementById('lastScore').innerText = state.score;
@@ -366,7 +369,7 @@
         }
 
         window.addEventListener('keydown', (e) => { if(e.code === 'Space') { e.preventDefault(); jump(); } });
-        canvas.addEventListener('mousedown', jump);
+        canvas.addEventListener('mousedown', (e) => { e.preventDefault(); jump(); });
     </script>
 </body>
 </html>
