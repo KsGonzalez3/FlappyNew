@@ -151,17 +151,48 @@
 
         function gameOver() {
             gameActive = false;
+            
+            // Mostramos mensaje de carga
             statusMsg.classList.remove('hidden');
-            statusMsg.innerText = "¡Puntaje enviado a AWS!";
-            
-            // Simulación de envío a AWS (Aquí conectarías tu API Gateway/Lambda)
-            console.log(`Enviando a AWS: ${playerName} - Score: ${score}`);
-            
+            statusMsg.innerText = "Enviando puntaje a AWS...";
+            statusMsg.style.background = "#d97706"; // Color naranja de espera
+
+            // --- CONEXIÓN REAL CON API GATEWAY ---
+            const API_URL = 'https://xxupum4746.execute-api.us-east-2.amazonaws.com/save'; // <--- PEGA AQUÍ TU URL DE API GATEWAY
+
+            fetch(API_URL, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId: "WEB_" + Date.now(),
+                    username: playerName,
+                    score: score
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Error en el servidor');
+                return response.json();
+            })
+            .then(data => {
+                console.log("Respuesta de AWS:", data);
+                statusMsg.innerText = "¡Puntaje guardado con éxito!";
+                statusMsg.style.background = "#059669"; // Color verde de éxito
+            })
+            .catch(error => {
+                console.error("Error al conectar con el API:", error);
+                statusMsg.innerText = "Error al guardar en la nube";
+                statusMsg.style.background = "#dc2626"; // Color rojo de error
+            });
+            // ---------------------------------------
+
             setTimeout(() => {
                 statusMsg.classList.add('hidden');
                 startScreen.style.display = 'block';
                 canvas.style.display = 'none';
-            }, 2000);
+            }, 3000);
         }
 
         window.addEventListener('keydown', (e) => {
